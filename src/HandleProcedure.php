@@ -78,6 +78,8 @@ class HandleProcedure implements ShouldQueue
             return new InvalidParams($exception->validator->errors()->toArray());
         }
 
+        $exception = RPC::exceptionResolve($exception) ?? $exception;
+
         if ($exception instanceof RpcException) {
             return $exception;
         }
