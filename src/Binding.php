@@ -12,6 +12,8 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 use ReflectionClass;
 use ReflectionParameter;
+use Sajya\Server\Exceptions\RpcException;
+use Throwable;
 
 class Binding
 {
@@ -27,7 +29,14 @@ class Binding
      *
      * @var array
      */
-    protected $binders = [];
+    protected array $binders = [];
+
+    /**
+     * The registered exception resolvers.
+     *
+     * @var array
+     */
+    protected array $exceptionResolvers = [];
 
     /**
      * Application constructor.
@@ -64,7 +73,8 @@ class Binding
     public function bind(string $key, $binder): void
     {
         $this->binders[$key] = RouteBinding::forCallback(
-            $this->container, $binder
+            $this->container,
+            $binder
         );
     }
 
@@ -83,7 +93,7 @@ class Binding
         $class = new ReflectionClass(Str::before($procedure, '@'));
         $method = $class->getMethod(Str::after($procedure, '@'));
 
-        return collect($method->getParameters())
+        return [...collect($method->getParameters())
             ->map(fn (ReflectionParameter $parameter) => $parameter->getName())
             ->mapWithKeys(function (string $key) use ($params) {
                 $value = Arr::get($params, $key);
@@ -92,7 +102,30 @@ class Binding
                 return [$key => $value ?? $valueDot];
             })
             ->map(fn ($value, string $key) => with($value, $this->binders[$key] ?? null))
-            ->filter()
-            ->toArray();
+            ->filter()];
+    }
+
+    /**
+     * @param string $class
+     * @param callable $resolver
+     * @return void
+     */
+    public function exception(string $class, callable $resolver): void
+    {
+        $this->exceptionResolvers[$class] = $resolver;
+    }
+
+    /**
+     * @param  Throwable  $exception
+     * @return RpcException|null
+     */
+    public function exceptionResolve(Throwable $exception): ?RpcException
+    {
+        foreach ($this->exceptionResolvers as $className => $resolver) {
+            if ($exception instanceof $className) {
+                return $resolver($exception);
+            }
+        }
+        return null;
     }
 }
