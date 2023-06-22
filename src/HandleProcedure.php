@@ -21,7 +21,10 @@ use Throwable;
 
 class HandleProcedure implements ShouldQueue
 {
-    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
+    use Dispatchable;
+    use InteractsWithQueue;
+    use Queueable;
+    use SerializesModels;
 
     /**
      * Name of the procedure.
