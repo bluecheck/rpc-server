@@ -9,6 +9,7 @@ use Illuminate\Container\Container;
 use Illuminate\Routing\RouteBinding;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Str;
 use ReflectionClass;
 use ReflectionParameter;
@@ -57,7 +58,7 @@ class Binding
      *
      * @return void
      */
-    public function model(string $key, string $class, Closure $callback = null): void
+    public function model(string $key, string $class, ?Closure $callback = null): void
     {
         $this->bind($key, RouteBinding::forModel($this->container, $class, $callback));
     }
@@ -101,7 +102,19 @@ class Binding
 
                 return [$key => $value ?? $valueDot];
             })
-            ->map(fn ($value, string $key) => with($value, $this->binders[$key] ?? null))
+            ->map(function ($value, string $key) {
+
+                $closure = $this->binders[$key] ?? null;
+
+                if (is_callable($closure)) {
+                    return app()->call($closure, [
+                        'value' => $value,
+                        'route' => Route::current(),
+                    ]);
+                }
+
+                return $value;
+            })
             ->filter()];
     }
 
